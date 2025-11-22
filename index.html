@@ -92,7 +92,7 @@
         <!-- Header -->
         <header class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md">
             <h2 class="text-lg font-semibold flex items-center">
-                <span class="mr-2 text-xl">🤖</span> PortfoBot Assistant
+                <span class="mr-2 text-xl">✨</span> General AI Assistant
             </h2>
             <button id="close-chat" class="p-1 rounded-full hover:bg-indigo-700 transition">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -120,7 +120,7 @@
         <!-- Input Form -->
         <form id="chat-form" class="p-3 border-t border-gray-200">
             <div class="flex gap-2">
-                <input type="text" id="user-input" placeholder="Ask about my skills or projects..."
+                <input type="text" id="user-input" placeholder="Ask anything, powered by Google Search..."
                        class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150" required>
                 <button type="submit" id="send-btn"
                         class="bg-indigo-500 text-white p-2 rounded-lg hover:bg-indigo-600 transition duration-150 disabled:opacity-50">
@@ -142,13 +142,12 @@
 
         // IMPORTANT: The apiKey must be an empty string for the hosting environment 
         // (like Canvas) to securely inject the API token at runtime.
-        // If you are running this file locally outside the environment, 
-        // replace the empty string with your personal Google AI Studio Key.
         const apiKey = "AIzaSyDF14H_5bcJkAbWKVBEbFhNI7dP_UOfDUc"; 
 
         // Initial messages
         let chatMessages = [
-            { sender: 'ai', text: "Hello! I'm PortfoBot, the AI assistant for this portfolio. Ask me anything about the developer's skills, experience, or projects!" }
+            // Updated welcome message for the general AI
+            { sender: 'ai', text: "Hello! I'm a general-purpose AI assistant, ready to help with any question you have, backed by Google Search grounding." }
         ];
 
         // --- UI Control Functions ---
@@ -172,16 +171,41 @@
         const renderMessage = (message) => {
             const isAI = message.sender === 'ai';
             const alignment = isAI ? 'justify-start' : 'justify-end';
-            const bgColor = isAI ? 'bg-gray-100 text-gray-800' : 'bg-indigo-500 text-white';
-            const name = isAI ? 'PortfoBot' : 'You';
+            // Changed AI color to blue for general assistant
+            const bgColor = isAI ? 'bg-blue-100 text-gray-800 border border-blue-200' : 'bg-indigo-500 text-white';
+            const name = isAI ? 'AI Assistant' : 'You';
             const borderRadius = isAI ? 'rounded-br-xl rounded-tr-xl rounded-bl-xl' : 'rounded-tl-xl rounded-tr-xl rounded-bl-xl';
+
+            // Start message content with text
+            let contentHTML = `<p class="text-sm whitespace-pre-wrap">${message.text}</p>`;
+
+            // NEW: Add citation sources if they exist (only for AI messages)
+            if (isAI && message.sources && message.sources.length > 0) {
+                // Filter out sources without both URI and title, and keep only unique URIs
+                const uniqueSources = Array.from(new Map(message.sources
+                    .filter(s => s.uri && s.title)
+                    .map(item => [item['uri'], item])
+                ).values());
+
+                if (uniqueSources.length > 0) {
+                     let citationHtml = '<div class="mt-2 pt-2 border-t border-blue-300">';
+                    citationHtml += '<p class="text-xs font-semibold text-blue-700 mb-1">Sources:</p>';
+                    uniqueSources.forEach((source, index) => {
+                        const displayTitle = source.title.length > 50 ? source.title.substring(0, 50) + '...' : source.title;
+                        citationHtml += `<a href="${source.uri}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 underline block" title="${source.title}">(${index + 1}) ${displayTitle}</a>`;
+                    });
+                    citationHtml += '</div>';
+                    contentHTML += citationHtml;
+                }
+            }
+
 
             const messageEl = document.createElement('div');
             messageEl.className = `flex ${alignment}`;
             messageEl.innerHTML = `
                 <div class="max-w-xs sm:max-w-sm p-3 shadow-md ${bgColor} ${borderRadius}">
-                    <p class="text-xs font-semibold mb-1 ${isAI ? 'text-indigo-600' : 'text-indigo-200'}">${name}</p>
-                    <p class="text-sm whitespace-pre-wrap">${message.text}</p>
+                    <p class="text-xs font-semibold mb-1 ${isAI ? 'text-blue-600' : 'text-indigo-200'}">${name}</p>
+                    ${contentHTML}
                 </div>
             `;
             chatHistory.appendChild(messageEl);
@@ -196,24 +220,24 @@
         // Render initial welcome message on load
         document.addEventListener('DOMContentLoaded', renderHistory);
 
-        // --- Gemini API Call ---
+        // --- Gemini API Call (Now General Purpose and Grounded) ---
 
-        // The system instruction defines the AI's role, personality, and knowledge base.
-        const SYSTEM_INSTRUCTION = "You are the friendly, professional AI Portfolio Assistant, named 'PortfoBot', for the owner of this website. Your primary role is to answer questions about the owner's skills (like JavaScript, React, Design, Firebase), projects (e.g., a real-time chat app, an e-commerce platform), and professional background. Maintain a helpful, enthusiastic, and concise tone. When asked personal questions, politely redirect them to professional topics. Never make up contact details. Start with a warm greeting relevant to the user's last question.";
+        // UPDATED SYSTEM INSTRUCTION: General, helpful, and objective.
+        const SYSTEM_INSTRUCTION = `
+            You are a highly capable and objective general AI Assistant. 
+            Your role is to answer user queries comprehensively, accurately, and professionally, utilizing Google Search grounding for real-time and up-to-date information when necessary. 
+            Structure your response clearly and concisely.
+            Do NOT mention that you are an LLM or an AI unless asked directly.
+        `;
 
         const callGeminiAPI = async (prompt) => {
-            // CENTRALIZED KEY CHECK: If apiKey is empty, it means the token injection failed 
-            // (either running locally without a key, or an issue in the host environment).
-            if (!apiKey) {
-                console.error("Gemini API Error: apiKey is missing.");
-                return "The AI feature is currently unavailable. If you are running this locally, please insert your personal Google AI Studio key into the 'apiKey' variable. If you are viewing this in the host environment (Canvas), contact support.";
-            }
             
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                // We do NOT use search grounding here as the AI should simulate portfolio knowledge
+                // NEW: Enable Google Search grounding tool
+                tools: [{ "google_search": {} }], 
                 systemInstruction: {
                     parts: [{ text: SYSTEM_INSTRUCTION }]
                 },
@@ -223,6 +247,7 @@
             let retryCount = 0;
 
             const executeFetch = async () => {
+                // The runtime environment injects the necessary authorization token when apiKey is empty.
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -231,6 +256,7 @@
 
                 if (!response.ok) {
                     if (response.status === 429 && retryCount < maxRetries) {
+                        // Exponential backoff
                         const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
                         retryCount++;
                         await new Promise(resolve => setTimeout(resolve, delay));
@@ -243,14 +269,36 @@
 
             try {
                 const result = await executeFetch();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                return text || "I received an empty response. Could you try rephrasing your question?";
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const text = candidate.content.parts[0].text;
+                    
+                    let sources = [];
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        // Extract and map the sources
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title);
+                    }
+
+                    // Return both text and sources
+                    return { text, sources };
+
+                } else {
+                    return { text: "I received an empty response. Could you try rephrasing your question?", sources: [] };
+                }
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                 const userFacingError = error.message.includes("403") 
-                    ? "Authorization failed (Status 403). Your API key is likely invalid or domain-restricted. Please verify your key or hosting setup."
+                
+                const userFacingError = error.message.includes("403") 
+                    ? "Authorization failed (Status 403). The environment could not provide the required token. Please try again."
                     : `An error occurred while connecting to the AI. Details: ${error.message}.`;
-                return userFacingError;
+                return { text: userFacingError, sources: [] };
             }
         };
 
@@ -272,11 +320,16 @@
             loadingIndicator.classList.remove('hidden');
 
             try {
-                // Call the real API (or handle the missing key error within callGeminiAPI)
-                const aiResponseText = await callGeminiAPI(prompt);
+                // Call the API (which now returns {text, sources})
+                const aiResponse = await callGeminiAPI(prompt);
 
                 // 3. Add AI message
-                chatMessages.push({ sender: 'ai', text: aiResponseText });
+                // Include sources in the message object so renderMessage can display them
+                chatMessages.push({ 
+                    sender: 'ai', 
+                    text: aiResponse.text,
+                    sources: aiResponse.sources // Pass sources to the renderer
+                });
                 renderHistory();
 
             } catch (error) {

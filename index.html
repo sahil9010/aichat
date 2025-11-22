@@ -140,10 +140,11 @@
         const sendBtn = document.getElementById('send-btn');
         const loadingIndicator = document.getElementById('loading-indicator');
 
-        // Note: The API Key is intentionally left empty. The host environment (like Canvas)
-        // must inject it for the API call to work. If running locally, this will fail 
-        // with a clear error message.
-        const apiKey = "AIzaSy...YOUR_ACTUAL_KEY_HERE...xyz123"; 
+        // IMPORTANT: The apiKey must be an empty string for the hosting environment 
+        // (like Canvas) to securely inject the API token at runtime.
+        // If you are running this file locally outside the environment, 
+        // replace the empty string with your personal Google AI Studio Key.
+        const apiKey = ""; 
 
         // Initial messages
         let chatMessages = [
@@ -201,10 +202,11 @@
         const SYSTEM_INSTRUCTION = "You are the friendly, professional AI Portfolio Assistant, named 'PortfoBot', for the owner of this website. Your primary role is to answer questions about the owner's skills (like JavaScript, React, Design, Firebase), projects (e.g., a real-time chat app, an e-commerce platform), and professional background. Maintain a helpful, enthusiastic, and concise tone. When asked personal questions, politely redirect them to professional topics. Never make up contact details. Start with a warm greeting relevant to the user's last question.";
 
         const callGeminiAPI = async (prompt) => {
-            // Check for missing API key (essential for local testing/deployment)
+            // CENTRALIZED KEY CHECK: If apiKey is empty, it means the token injection failed 
+            // (either running locally without a key, or an issue in the host environment).
             if (!apiKey) {
                 console.error("Gemini API Error: apiKey is missing.");
-                return "The API key is missing. This feature works only when the app is running in the designated environment. You can check the code for the integration logic!";
+                return "The AI feature is currently unavailable. If you are running this locally, please insert your personal Google AI Studio key into the 'apiKey' variable. If you are viewing this in the host environment (Canvas), contact support.";
             }
             
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -245,7 +247,10 @@
                 return text || "I received an empty response. Could you try rephrasing your question?";
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                return `An error occurred while connecting to the AI. Details: ${error.message}.`;
+                 const userFacingError = error.message.includes("403") 
+                    ? "Authorization failed (Status 403). Your API key is likely invalid or domain-restricted. Please verify your key or hosting setup."
+                    : `An error occurred while connecting to the AI. Details: ${error.message}.`;
+                return userFacingError;
             }
         };
 
@@ -267,15 +272,8 @@
             loadingIndicator.classList.remove('hidden');
 
             try {
-                let aiResponseText;
-
-                if (apiKey === "") {
-                    // Local fallback error message
-                    aiResponseText = "The AI feature requires the API key to be injected by the hosting environment. Since the key is missing, I cannot process your request. Please view this application in a running environment (like Canvas) for full functionality!";
-                } else {
-                    // Call the real API
-                    aiResponseText = await callGeminiAPI(prompt);
-                }
+                // Call the real API (or handle the missing key error within callGeminiAPI)
+                const aiResponseText = await callGeminiAPI(prompt);
 
                 // 3. Add AI message
                 chatMessages.push({ sender: 'ai', text: aiResponseText });
